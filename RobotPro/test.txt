@@ -1,0 +1,69 @@
+// #include <AccelStepper.h>
+// #include <Arduino.h>
+
+// // 连接Z轴步进电机的引脚
+// const int z_stepPin = 4;
+// const int z_dirPin = 7;
+
+// const int z_reset_monitor_pin = 11;
+
+// // 创建Z轴AccelStepper对象，设置电机类型为全步模式（可根据实际电机情况修改）
+// AccelStepper z_stepper(AccelStepper::DRIVER, z_stepPin, z_dirPin);
+
+// void setup() {
+//     // 设置Z轴dir引脚为输出模式
+//     pinMode(z_dirPin, OUTPUT);
+//     pinMode(z_reset_monitor_pin, INPUT);
+    
+//     // 设置加速度、速度、最大速度
+//     z_stepper.setAcceleration(0);
+//     z_stepper.setMaxSpeed(200);
+//     z_stepper.setSpeed(200); // 设置一个合适的速度，可根据实际情况调整
+
+//     // 启动运动
+    
+
+//     // 复位完成后停下
+// }
+
+// void loop() {
+    
+//     // 等待Z轴电机复位
+//     digitalWrite(z_dirPin, HIGH);
+//     while (1) {
+//         digitalWrite(z_stepPin, HIGH);
+//         delayMicroseconds(5);
+//         digitalWrite(z_stepPin, LOW);
+//         delay(5);
+//         if(digitalRead(z_reset_monitor_pin) == HIGH)break;
+//     }
+
+//      z_stepper.setAcceleration(20000);
+//     z_stepper.setMaxSpeed(2000);
+//     z_stepper.setSpeed(2000); // 设置一个合适的速度，可根据实际情况调整
+//     // 设置新目标，确保每次目标更新后都完成当前的运动再设置新目标
+//     z_stepper.move(-2000);   // 设置新目标
+//     while (z_stepper.distanceToGo() != 0) {
+//         z_stepper.run(); // 执行到达目标的运动
+//     }
+   
+// }
+// 定义D13和D12针脚对应的数字引脚编号
+const int pinD13 = 13;
+const int pinD12 = 12;
+
+void setup() {
+    // 设置D13和D12引脚为输出模式
+    pinMode(pinD13, OUTPUT);
+    pinMode(pinD12, OUTPUT);
+
+    // 将D13引脚输出高电平
+    digitalWrite(pinD13, HIGH);
+
+    // 将D12引脚输出高电平
+    digitalWrite(pinD12, HIGH);
+}
+
+void loop() {
+    // 这里可以添加其他需要在循环中执行的代码，如果不需要循环执行特定代码，可保持为空
+}

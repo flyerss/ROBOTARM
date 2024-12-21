@@ -1,0 +1,258 @@
+
+
+#include <AccelStepper.h>
+#include <Arduino.h>
+#include "util.h"
+// 连接Z轴步进电机的引脚
+const int z_stepPin = 4;
+const int z_dirPin = 7;
+
+// 连接Y轴步进电机的引脚
+const int y_stepPin = 3;
+const int y_dirPin = 6;
+
+// 连接X轴步进电机的引脚
+const int x_stepPin = 2;
+const int x_dirPin = 5;
+
+const int x_reset_monitor_pin = 9;
+const int y_reset_monitor_pin = 10;
+const int z_reset_monitor_pin = 11;
+
+// 定义D13针脚对应的数字引脚编号
+const int pinD13 = 13;
+
+// 用于记录D13针脚当前的输出状态，初始化为低电平（false表示低电平，true表示高电平）
+bool d13OutputState = false;
+
+
+// 创建Z轴AccelStepper对象，设置电机类型为全步模式（可根据实际电机情况修改）
+AccelStepper z_stepper(AccelStepper::DRIVER, z_stepPin, z_dirPin);
+
+// 创建Y轴AccelStepper对象，设置电机类型为全步模式（可根据实际电机情况修改）
+AccelStepper y_stepper(AccelStepper::DRIVER, y_stepPin, y_dirPin);
+
+// 创建X轴AccelStepper对象，设置电机类型为全步模式（可根据实际电机情况修改）
+AccelStepper x_stepper(AccelStepper::DRIVER, x_stepPin, x_dirPin);
+
+// 定义Z轴电机当前状态
+bool z_isMoving = false;
+
+// 定义Y轴电机当前状态
+bool y_isMoving = false;
+
+// 定义X轴电机当前状态
+bool x_isMoving = false;
+void toggleD13Output() {
+    d13OutputState =!d13OutputState;
+    digitalWrite(pinD13, d13OutputState? HIGH : LOW);
+    Serial.println(d13OutputState? "D13针脚输出高电平" : "D13针脚输出低电平");
+}
+void setup() {
+    // 设置串口波特率，需与上位机一致
+    Serial.begin(9600);
+
+    
+
+    // 设置Z轴dir引脚为输出模式
+    pinMode(z_dirPin, OUTPUT);
+
+    // 设置Y轴dir引脚为输出模式
+    pinMode(y_dirPin, OUTPUT);
+
+    // 设置X轴dir引脚为输出模式
+    pinMode(x_dirPin, OUTPUT);
+    pinMode(pinD13, OUTPUT);
+    pinMode(x_reset_monitor_pin, INPUT);
+    pinMode(y_reset_monitor_pin, INPUT);
+    pinMode(z_reset_monitor_pin, INPUT);
+}
+
+
+void loop() {
+    if (Serial.available()) {
+        String command = Serial.readStringUntil('\n');
+        if (command == "RESET_ALL"){
+            
+            // 先复位Y轴电机
+            reset(y_dirPin,y_stepPin,y_reset_monitor_pin,1);
+
+            Serial.println("Y轴电机复位完成");
+                
+            // 再复位X轴电机
+            reset(x_dirPin,x_stepPin,x_reset_monitor_pin,0);
+
+            Serial.println("X轴电机复位完成");
+            // 最后复位Z轴电机
+            reset(z_dirPin,z_stepPin,z_reset_monitor_pin,1);
+
+
+            Serial.println("Z轴电机复位完成");
+
+            Serial.println("三个轴电机依次复位完成");
+        }
+        else if (command == "TOGGLE_D13") {
+            toggleD13Output();
+        }
+        else{
+            int speed;
+            int acceleration;
+            int maxSpeed;
+            int pulseCount;
+                
+            int params[4];
+            int index = 0;
+            int startIndex = -1; // 用于记录每个参数数字开始的索引
+            for (int i = 3; i < command.length(); i++) {
+                if (startIndex == -1 && command.charAt(i)!=' ') {
+                        // 找到一个新参数的起始位置
+                        startIndex = i;
+                    }
+                if (startIndex!= -1 && (i == command.length() - 1 || command.charAt(i) ==' ')) {
+                        // 到达参数结尾（要么是字符串末尾，要么遇到空格）
+                    int endIndex = i;
+                    if (i == command.length() - 1) {
+                        // 如果是最后一个参数，结尾索引就是字符串末尾
+                        endIndex++;
+                    }
+
+                    params[index] = atoi(command.substring(startIndex, endIndex).c_str());
+                    index++;
+                    startIndex = -1;
+                }
+            }
+
+           
+            speed = params[0];
+            acceleration = params[1];
+            maxSpeed = params[2];
+            pulseCount = params[3];
+        
+
+            // 处理Z轴相关指令
+            if (command.startsWith("Z_F")) {
+                // 根据上位机传来的参数设置Z轴电机的速度、加速度和要移动的步数
+                z_stepper.setMaxSpeed(maxSpeed);
+                z_stepper.setAcceleration(acceleration);
+                z_stepper.setSpeed(speed);
+                z_stepper.move(pulseCount);
+
+                z_isMoving = true;
+
+                Serial.println("接收到Z轴正转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            } else if (command.startsWith("Z_R")) {
+                // 根据上位机传来的参数设置Z轴电机的速度、加速度和要移动的步数
+                z_stepper.setMaxSpeed(maxSpeed);
+                z_stepper.setAcceleration(acceleration);
+                z_stepper.setSpeed(speed);
+                z_stepper.move(-pulseCount);
+                z_isMoving = true;
+
+                Serial.println("接收到Z轴反转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            }
+
+            // 处理Y轴相关指令
+            else if (command.startsWith("Y_F")) {
+                y_stepper.setMaxSpeed(maxSpeed);
+                y_stepper.setAcceleration(acceleration);
+                y_stepper.setSpeed(speed);
+                y_stepper.move(pulseCount);
+                y_isMoving = true;
+
+                Serial.println("接收到Y轴正转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            } else if (command.startsWith("Y_R")) {
+                y_stepper.setMaxSpeed(maxSpeed);
+                y_stepper.setAcceleration(acceleration);
+                y_stepper.setSpeed(speed);
+                y_stepper.move(-pulseCount);
+                y_isMoving = true;
+
+                Serial.println("接收到Y轴反转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            }
+
+            // 处理X轴相关指令
+            else if (command.startsWith("X_F")) {
+                // 根据上位机传来的参数设置X轴电机的速度、加速度和要移动的步数
+                x_stepper.setMaxSpeed(maxSpeed);
+                x_stepper.setAcceleration(acceleration);
+                x_stepper.setSpeed(speed);
+                x_stepper.move(pulseCount);
+                x_isMoving = true;
+
+                Serial.println("接收到X轴正转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            } else if (command.startsWith("X_R")) {
+                x_stepper.setMaxSpeed(maxSpeed);
+                x_stepper.setAcceleration(acceleration);
+                x_stepper.setSpeed(speed);
+                x_stepper.move(-pulseCount);
+                x_isMoving = true;
+
+                Serial.println("接收到X轴反转命令，参数如下：");
+
+                Serial.println("速度：" + String(speed));
+                Serial.println("加速度：" + String(acceleration));
+                Serial.println("最大速度：" + String(maxSpeed));
+                Serial.println("脉冲数：" + String(pulseCount));
+            }
+        }
+        
+    }
+
+    // 处理Z轴电机运动
+    if (z_isMoving) {
+        while (z_stepper.distanceToGo()!= 0) {
+            z_stepper.run();
+        }
+        z_isMoving = false;
+
+        // 可在此处添加一些额外的操作，比如向上位机发送Z轴电机运动完成的信息等
+        Serial.println("Z轴电机运动完成");
+    }
+
+    // 处理Y轴电机运动
+    if (y_isMoving) {
+        while (y_stepper.distanceToGo()!= 0) {
+            y_stepper.run();
+        }
+        y_isMoving = false;
+
+        // 可在此处添加一些额外的操作，比如向上位机发送Y轴电机运动完成的信息等
+        Serial.println("Y轴电机运动完成");
+    }
+
+    // 处理X轴电机运动
+    if (x_isMoving) {
+        while (x_stepper.distanceToGo()!= 0) {
+            x_stepper.run();
+        }
+        x_isMoving = false;
+
+        // 可在此处添加一些额外的操作，比如向上位机发送X轴电机运动完成的信息等
+        Serial.println("X轴电机运动完成");
+    }
+}
